@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --chart-1: #0066FF;
+  --chart-2: #00B386;
+  --chart-3: #FFB800;
+  --chart-4: #FF3333;
+  --chart-5: #6366F1;
+}
+
+html,
+body {
+  background-color: #0b0f19;
+  background-image: 
+    radial-gradient(circle at 50% -10%, rgba(0, 102, 255, 0.12) 0%, transparent 60%),
+    radial-gradient(circle at 10% 40%, rgba(0, 179, 134, 0.04) 0%, transparent 40%);
+  color: #f1f5f9;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+body {
+  font-feature-settings: "tnum" 1, "cv02" 1;
+}
+
+/* Numeric tabular formatting for currency and hashes */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background-color: rgba(0, 102, 255, 0.35);
+  color: #ffffff;
+}
+
+/* Custom sleek dark scrollbars */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #0b0f19;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 6px;
+  border: 2px solid #0b0f19;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Razorpay focus ring */
+:focus-visible {
+  outline: 2px solid #0066ff;
+  outline-offset: 2px;
+}
+
+@keyframes agentguard-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.95);
+  }
+}
+
+.pulse-dot {
+  animation: agentguard-pulse 1.8s ease-in-out infinite;
+}

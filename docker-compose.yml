@@ -1,0 +1,35 @@
+# Local Postgres for AgentGuard development and tests.
+#
+# Port 5434 on the host is deliberate: 5432 and 5433 are commonly already taken by
+# another project's database. Override with AGENTGUARD_PG_PORT if 5434 is busy too.
+#
+#   docker compose up -d
+#   npm run db:migrate
+#
+# The container is the only durable state store AgentGuard uses after the v3 upgrade.
+# The old single-file JSON snapshot remains available as an explicit opt-in for
+# demos that must run with no database at all (AGENTGUARD_STATE_BACKEND=snapshot).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: agentguard-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: agentguard
+      POSTGRES_PASSWORD: agentguard
+      POSTGRES_DB: agentguard
+    ports:
+      - "${AGENTGUARD_PG_PORT:-5434}:5432"
+    volumes:
+      - agentguard-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The engine fails closed if the database is unreachable, so compose should not
+      # report "up" until the server actually accepts connections.
+      test: ["CMD-SHELL", "pg_isready -U agentguard -d agentguard"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  agentguard-pgdata:
