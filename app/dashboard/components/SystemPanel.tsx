@@ -49,7 +49,7 @@ export function SystemPanel({
         </>
       }
     >
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
         <Field
           label="Payment gateway"
           value={
@@ -74,10 +74,14 @@ export function SystemPanel({
         <Field
           label="Snapshot updated"
           value={
-            <>
-              {clockTime(persistence.snapshotUpdatedAt)}
-              <Relative iso={persistence.snapshotUpdatedAt} prefix=" · " />
-            </>
+            Date.parse(persistence.snapshotUpdatedAt) <= 0 ? (
+              <span className="text-neutral-400 font-mono text-[11px]">Initial (clean)</span>
+            ) : (
+              <>
+                {clockTime(persistence.snapshotUpdatedAt)}
+                <Relative iso={persistence.snapshotUpdatedAt} prefix=" · " />
+              </>
+            )
           }
         />
         <Field label="Audit blocks" value={persistence.auditBlockCount} />

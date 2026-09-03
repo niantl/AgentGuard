@@ -1,17 +1,19 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { Shield, CreditCard, Lock, CheckCircle2 } from "lucide-react";
 import type { PolicyView } from "@/runtime/agentGuardRuntime";
 import { BudgetUtilizationGauge } from "./charts/BudgetUtilizationGauge";
 import { BudgetDistributionDonut } from "./charts/BudgetDistributionDonut";
 import { rupees } from "../lib/format";
+import { useMotionKit } from "../lib/motion";
 
 interface BudgetOverviewProps {
   policies: PolicyView[];
 }
 
 export function BudgetOverview({ policies }: BudgetOverviewProps) {
+  const motionKit = useMotionKit();
   const totalBudget = policies.reduce((sum, p) => sum + p.maxAmountInPaisa, 0);
   const totalConsumed = policies.reduce((sum, p) => sum + p.consumedAmountInPaisa, 0);
   const totalReserved = policies.reduce((sum, p) => sum + p.reservedAmountInPaisa, 0);
@@ -22,22 +24,13 @@ export function BudgetOverview({ policies }: BudgetOverviewProps) {
   const percentageReserved = (totalReserved / safeBudget) * 100;
   const percentageAvailable = (totalAvailable / safeBudget) * 100;
 
-  const formatLakhs = (paisa: number) => {
-    const r = paisa / 100;
-    if (r >= 100000) {
-      return `₹${(r / 100000).toFixed(2)}L`;
-    }
-    return rupees(paisa);
-  };
-
   return (
     <div className="space-y-6">
       {/* AlignUI Finance & Banking: 4-Card KPI Metric Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Cap */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          {...motionKit.rise(0, 12)}
           className="rounded-xl border border-razorpay-500/30 bg-gradient-to-b from-[#16213E] to-[#0F172A] p-5 shadow-xl backdrop-blur-md relative overflow-hidden"
         >
           <div className="absolute top-0 right-0 h-20 w-20 bg-razorpay-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -50,7 +43,7 @@ export function BudgetOverview({ policies }: BudgetOverviewProps) {
             </span>
           </div>
           <h3 className="tabular font-mono text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
-            {formatLakhs(totalBudget)}
+            {rupees(totalBudget)}
           </h3>
           <p className="text-[11px] text-neutral-400 mt-2 flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-razorpay-400" />
@@ -60,9 +53,7 @@ export function BudgetOverview({ policies }: BudgetOverviewProps) {
 
         {/* Consumed Spend */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
+          {...motionKit.rise(1, 12)}
           className="rounded-xl border border-white/[0.08] bg-[#11192E]/90 p-5 shadow-xl backdrop-blur-md hover:border-rose-500/30 transition-all relative"
         >
           <div className="flex items-center justify-between mb-3">
@@ -74,14 +65,14 @@ export function BudgetOverview({ policies }: BudgetOverviewProps) {
             </span>
           </div>
           <h3 className="tabular font-mono text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
-            {formatLakhs(totalConsumed)}
+            {rupees(totalConsumed)}
           </h3>
           <div className="mt-3 flex items-center justify-between">
             <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden mr-2">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min(percentageConsumed, 100)}%` }}
-                transition={{ duration: 1, ease: "easeOut" }}
+                transition={motionKit.t({ duration: 1, ease: "easeOut" })}
                 className="h-full bg-rose-500 rounded-full"
               />
             </div>
@@ -93,9 +84,7 @@ export function BudgetOverview({ policies }: BudgetOverviewProps) {
 
         {/* Held in Escrow */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
+          {...motionKit.rise(2, 12)}
           className="rounded-xl border border-white/[0.08] bg-[#11192E]/90 p-5 shadow-xl backdrop-blur-md hover:border-amber-500/30 transition-all relative"
         >
           <div className="flex items-center justify-between mb-3">
@@ -107,14 +96,14 @@ export function BudgetOverview({ policies }: BudgetOverviewProps) {
             </span>
           </div>
           <h3 className="tabular font-mono text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
-            {formatLakhs(totalReserved)}
+            {rupees(totalReserved)}
           </h3>
           <div className="mt-3 flex items-center justify-between">
             <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden mr-2">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min(percentageReserved, 100)}%` }}
-                transition={{ duration: 1, ease: "easeOut" }}
+                transition={motionKit.t({ duration: 1, ease: "easeOut" })}
                 className="h-full bg-amber-500 rounded-full"
               />
             </div>
@@ -126,9 +115,7 @@ export function BudgetOverview({ policies }: BudgetOverviewProps) {
 
         {/* Available Headroom */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
+          {...motionKit.rise(3, 12)}
           className="rounded-xl border border-white/[0.08] bg-[#11192E]/90 p-5 shadow-xl backdrop-blur-md hover:border-emerald-500/30 transition-all relative"
         >
           <div className="flex items-center justify-between mb-3">
@@ -140,14 +127,14 @@ export function BudgetOverview({ policies }: BudgetOverviewProps) {
             </span>
           </div>
           <h3 className="tabular font-mono text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
-            {formatLakhs(totalAvailable)}
+            {rupees(totalAvailable)}
           </h3>
           <div className="mt-3 flex items-center justify-between">
             <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden mr-2">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${Math.min(percentageAvailable, 100)}%` }}
-                transition={{ duration: 1, ease: "easeOut" }}
+                transition={motionKit.t({ duration: 1, ease: "easeOut" })}
                 className="h-full bg-emerald-500 rounded-full"
               />
             </div>

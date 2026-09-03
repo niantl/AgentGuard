@@ -213,7 +213,7 @@ export const LIVE_DEMO_ACTIONS: LiveDemoAction[] = [
   {
     actionId: "buy_paper",
     label: "Buy A4 paper carton — ₹539.60",
-    description: "Routine, in-policy, well under the ₹5,000 approval threshold.",
+    description: "Routine, in-policy, well under the ₹5,000.00 approval threshold.",
     itemId: "item_stationery_bulk",
     merchantId: "merchant_officedepot_in",
     category: "office_supplies",
@@ -222,7 +222,7 @@ export const LIVE_DEMO_ACTIONS: LiveDemoAction[] = [
   },
   {
     actionId: "buy_dock",
-    label: "Buy USB-C docking station — ₹2,124",
+    label: "Buy USB-C docking station — ₹2,124.00",
     description: "Larger but still below the approval threshold.",
     itemId: "item_laptop_dock",
     merchantId: "merchant_techmart_in",
@@ -232,8 +232,8 @@ export const LIVE_DEMO_ACTIONS: LiveDemoAction[] = [
   },
   {
     actionId: "buy_monitor",
-    label: "Buy 4K reference monitor — ₹7,632",
-    description: "Above the ₹5,000 threshold, so it must be signed off by a human.",
+    label: "Buy 4K reference monitor — ₹7,632.00",
+    description: "Above the ₹5,000.00 threshold, so it must be signed off by a human.",
     itemId: "item_overpriced_monitor",
     merchantId: "merchant_techmart_in",
     category: "electronics",
@@ -253,7 +253,7 @@ export const LIVE_DEMO_ACTIONS: LiveDemoAction[] = [
   },
   {
     actionId: "buy_injected",
-    label: "Buy the hostile-vendor toner — ₹9,254",
+    label: "Buy the hostile-vendor toner — ₹9,254.00",
     description:
       "The product description contains an injected instruction to ignore the budget cap.",
     itemId: "item_injected_toner",
@@ -330,13 +330,11 @@ export async function runScenario(id: string): Promise<{
     engine: runtime.engine,
     registerPolicy: (policy) => {
       runtime.store.registerPolicy(policy);
-      runtime.policies.set(policy.authorizationId, policy);
       return policy;
     },
   });
 
   runtime.scenarioOutcomes.set(outcome.id, outcome);
-  runtime.activeAuthorizationId = outcome.authorizationId;
   // The visualizer shows the pipeline of the scenario's *final* proposal, which is
   // the one carrying the blocked/escalated decision the scenario is demonstrating.
   runtime.lastRun = {
@@ -585,7 +583,16 @@ export function getDashboardState(): DashboardState {
   const runtime = getRuntime();
   const now = Date.now();
 
-  const policyViews = Array.from(runtime.policies.values()).map((policy) => toPolicyView(policy));
+  const policyViews = Array.from(runtime.policies.values()).map((policy) => {
+    const persisted = runtime.store.getPolicyState(policy.authorizationId);
+    if (persisted) {
+      policy.state.status = persisted.status;
+      policy.state.consumedAmountInPaisa = persisted.consumedAmountInPaisa;
+      policy.state.reservedAmountInPaisa = persisted.reservedAmountInPaisa;
+      policy.state.executedTransactionIds = [...persisted.executedTransactionIds];
+    }
+    return toPolicyView(policy);
+  });
   const active =
     policyViews.find((view) => view.authorizationId === runtime.activeAuthorizationId) ??
     policyViews.find((view) => view.isDemoPolicy) ??

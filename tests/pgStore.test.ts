@@ -60,7 +60,7 @@ describe("PgStore — Postgres-backed state store with row-level locking", () =>
   afterAll(async () => {
     if (pool) await pool.end();
     if (embeddedPg) await embeddedPg.stop();
-  });
+  }, 30000);
 
   beforeEach(async () => {
     await truncateAll(pool);

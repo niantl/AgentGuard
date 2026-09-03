@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { Terminal } from "lucide-react";
-import { motion } from "framer-motion";
-import { toast } from "sonner";
+import { motion } from "motion/react";
 import type {
   DashboardState,
   PendingEscalationView,
@@ -18,16 +17,22 @@ import { EscalationPanel } from "./components/EscalationPanel";
 import { AuditLogViewer } from "./components/AuditLogViewer";
 import { SystemPanel } from "./components/SystemPanel";
 import { BudgetOverview } from "./components/BudgetOverview";
-import { Badge, Card } from "./components/ui";
-import { clockTime } from "./lib/format";
+import { notify } from "./components/NotificationProvider";
+import { Card, FOCUS_RING } from "./components/ui";
+import { clockTime, displayMoneyText, rupees } from "./lib/format";
+import { DEFAULT_APPROVER_ID } from "./lib/constants";
+import { errorMessage } from "./lib/errorMessages";
 
 type TabId = "dashboard" | "policies" | "transactions" | "audit" | "settings";
+
+const SETTINGS_APPROVER_INPUT_ID = "default-approver-persona";
 
 export function DashboardClient({ initialState }: { initialState: DashboardState }) {
   const [state, setState] = useState<DashboardState>(initialState);
   const [busy, setBusy] = useState<string | null>(null);
+  const busyRef = useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
-  const [approverId, setApproverId] = useState("approver_finance_ops");
+  const [approverId, setApproverId] = useState(DEFAULT_APPROVER_ID);
   const [preflight, setPreflight] = useState<{
     allPassed: boolean;
     checks: PreflightCheck[];
@@ -42,9 +47,11 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
       body?: unknown,
       method: "POST" | "GET" = "POST",
     ): Promise<any> => {
+      if (busyRef.current !== null) return null;
+      busyRef.current = key;
       setBusy(key);
       try {
-        const toastId = toast.loading(`Processing ${key}...`);
+        const toastId = notify.loading(`Processing ${key}...`);
         const response = await fetch(url, {
           method,
           headers: body ? { "content-type": "application/json" } : undefined,
@@ -53,12 +60,13 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
         });
         const payload = await response.json();
         if (payload?.state) setState(payload.state);
-        toast.dismiss(toastId);
+        notify.dismiss(toastId);
         return payload;
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Request failed");
+        notify.error(error instanceof Error ? error.message : "Request failed");
         return null;
       } finally {
+        busyRef.current = null;
         setBusy(null);
       }
     },
@@ -76,9 +84,9 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
       if (!payload) return;
       const outcome = payload.outcome;
       if (outcome?.passed) {
-        toast.success("Scenario completed", { description: payload.message });
+        notify.success("Scenario completed", { description: displayMoneyText(payload.message) });
       } else {
-        toast.error("Scenario blocked", { description: payload.message });
+        notify.error("Scenario blocked", { description: displayMoneyText(payload.message) });
       }
     },
     [call],
@@ -90,18 +98,20 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
       if (!payload) return;
       const result = payload.result;
       if (!result) {
-        toast.error("Request failed");
+        notify.error("Request failed");
       } else if (result.success) {
-        toast.success("Transaction executed", {
+        notify.success("Transaction executed", {
           description: `Order ID: ${result.orderId}`,
         });
       } else if (result.code === "PENDING_HUMAN_APPROVAL") {
-        toast.warning("Awaiting approval", {
-          description: `Budget is reserved for ₹${(result.details?.quoteAmountInPaisa || 0) / 100}`,
+        notify.warning("Awaiting approval", {
+          description: `Budget is reserved for ${rupees(result.details?.quoteAmountInPaisa || 0)}`,
         });
       } else {
-        toast.error("Transaction blocked", {
-          description: result.code,
+        // The engine code is precise but unreadable; the operator gets the
+        // sentence and the code stays in the audit log where it belongs.
+        notify.error("Transaction blocked", {
+          description: errorMessage(result.code),
         });
       }
     },
@@ -120,18 +130,18 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
       if (!payload) return;
 
       if (payload.ok === false) {
-        toast.error("Approval failed", { description: payload.message });
+        notify.error("Approval failed", { description: payload.message });
         return;
       }
       if (decision === "deny") {
-        toast.info("Escalation denied", { description: "Reservation released." });
+        notify.info("Escalation denied", { description: "Reservation released." });
         return;
       }
       const result = payload.result;
       if (result?.success) {
-        toast.success("Transaction settled", { description: `Order: ${result.orderId}` });
+        notify.success("Transaction settled", { description: `Order: ${result.orderId}` });
       } else {
-        toast.error("Settlement failed");
+        notify.error("Settlement failed", { description: errorMessage(result?.code) });
       }
     },
     [approverId, call],
@@ -142,11 +152,11 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
     if (!payload) return;
     setLastVerifiedAt(new Date().toISOString());
     if (payload.integrity?.valid) {
-      toast.success("Chain verified", {
+      notify.success("Chain verified", {
         description: `${payload.integrity.blockCount} blocks recompute cleanly.`,
       });
     } else {
-      toast.error("Chain broken", {
+      notify.error("Chain broken", {
         description: payload.integrity?.reason ?? "unknown",
       });
     }
@@ -155,7 +165,7 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
   const tamper = useCallback(async () => {
     const payload = await call("tamper", "/api/agentguard/tamper");
     if (!payload) return;
-    toast[payload.tampered ? "warning" : "info"](
+    notify[payload.tampered ? "warning" : "info"](
       payload.tampered ? "Tampering enabled" : "Tampering disabled"
     );
   }, [call]);
@@ -166,9 +176,9 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
     setPreflight(payload);
     await refresh();
     if (payload.allPassed) {
-      toast.success(`All ${payload.checks.length} pre-flight checks passed`);
+      notify.success(`All ${payload.checks.length} pre-flight checks passed`);
     } else {
-      toast.error(
+      notify.error(
         `${payload.checks.filter((check: PreflightCheck) => !check.passed).length} pre-flight check(s) failed`
       );
     }
@@ -179,7 +189,7 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
     if (!payload) return;
     setPreflight(null);
     setLastVerifiedAt(null);
-    toast.info("System reset");
+    notify.info("System reset");
   }, [call]);
 
   const injectionOutcome = useMemo(
@@ -187,8 +197,12 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
     [state.scenarios],
   );
 
+  // Same signal the approval queue shows: the field looks inert, so it has to
+  // say when it is no longer the identity approvals get signed under.
+  const approverIdIsModified = approverId.trim() !== DEFAULT_APPROVER_ID;
+
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-slate-100">
+    <div className="min-h-screen bg-[#0B0F19] text-neutral-100">
       <DashboardHeader
         status={state.gateway.mode === "SIMULATED" ? "SIMULATED" : "CONNECTED"}
         lastSyncTime={clockTime(state.generatedAt)}
@@ -196,15 +210,10 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
 
       <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Dashboard Tab */}
         {activeTab === "dashboard" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-8"
-          >
+          <TabPanel id="dashboard" className="space-y-8">
             <BudgetOverview policies={state.policies} />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -229,17 +238,12 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
               onRunScenario={runScenario}
               onRunLive={runLive}
             />
-          </motion.div>
+          </TabPanel>
         )}
 
         {/* Policies Tab */}
         {activeTab === "policies" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-6"
-          >
+          <TabPanel id="policies" className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold text-white mb-6">Authorization Policies</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -253,17 +257,12 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
                 </div>
               )}
             </div>
-          </motion.div>
+          </TabPanel>
         )}
 
         {/* Transactions Tab */}
         {activeTab === "transactions" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-6"
-          >
+          <TabPanel id="transactions" className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold text-white mb-6">Recent Transactions</h2>
               <SimulationPanel
@@ -287,17 +286,12 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
                 />
               </div>
             )}
-          </motion.div>
+          </TabPanel>
         )}
 
         {/* Audit Log Tab */}
         {activeTab === "audit" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-6"
-          >
+          <TabPanel id="audit" className="space-y-6">
             <AuditLogViewer
               blocks={state.audit.blocks}
               totalBlocks={state.audit.totalBlocks}
@@ -323,33 +317,47 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
               </p>
               <InjectionEvidence outcome={injectionOutcome} />
             </Card>
-          </motion.div>
+          </TabPanel>
         )}
 
         {/* Settings Tab */}
         {activeTab === "settings" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-6"
-          >
+          <TabPanel id="settings" className="space-y-6">
             <div className="rounded-xl border border-white/[0.08] bg-[#11192E]/95 p-6 shadow-xl backdrop-blur-md">
               <h3 className="text-base font-semibold text-white mb-4">System Identity & Configuration</h3>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-400 mb-2 uppercase tracking-wider">
+                  <label
+                    htmlFor={SETTINGS_APPROVER_INPUT_ID}
+                    className="mb-2 block font-display text-xs font-semibold uppercase tracking-[0.1em] text-neutral-400"
+                  >
                     Default Approver Persona
                   </label>
                   <input
+                    id={SETTINGS_APPROVER_INPUT_ID}
+                    name="defaultApproverPersona"
                     type="text"
                     value={approverId}
+                    aria-label="Default Approver Persona"
+                    aria-describedby={`${SETTINGS_APPROVER_INPUT_ID}-hint`}
                     onChange={(e) => setApproverId(e.target.value)}
-                    className="w-full px-3.5 py-2 bg-[#0B0F19] border border-white/[0.08] rounded-lg text-white text-xs font-mono focus:outline-none focus:border-razorpay-500 transition-colors"
+                    className={`w-full rounded-lg border bg-[#0B0F19] px-3.5 py-2 font-mono text-xs text-white transition-colors ${FOCUS_RING} ${
+                      approverIdIsModified
+                        ? "border-razorpay-500/70 shadow-[0_0_0_3px_rgba(0,102,255,0.12)]"
+                        : "border-white/[0.08] hover:border-neutral-600"
+                    }`}
                   />
+                  <p
+                    id={`${SETTINGS_APPROVER_INPUT_ID}-hint`}
+                    className="mt-1.5 text-[11px] text-neutral-400"
+                  >
+                    {approverIdIsModified
+                      ? `Changed from the default — approvals will be signed as this identity.`
+                      : "Shared with the approval queue; every approval is HMAC-signed under this identity."}
+                  </p>
                 </div>
                 <div className="pt-4 border-t border-white/[0.06]">
-                  <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2.5">
+                  <h4 className="font-display text-xs font-semibold uppercase tracking-[0.1em] text-neutral-400 mb-2.5">
                     Payment Gateway Mode
                   </h4>
                   <div className="flex items-center gap-2.5">
@@ -375,7 +383,7 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
               onPreflight={runPreflight}
               onReset={reset}
             />
-          </motion.div>
+          </TabPanel>
         )}
       </main>
 
@@ -384,9 +392,39 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
   );
 }
 
+/**
+ * The rendered half of the ARIA tabs pattern in `DashboardTabs`. Each tab button
+ * emits `aria-controls="panel-<id>"`, so the panel has to answer with the
+ * matching id and point back at its tab, or the relationship is advertised but
+ * never resolves for a screen reader.
+ */
+function TabPanel({
+  id,
+  className,
+  children,
+}: {
+  id: TabId;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <motion.div
+      role="tabpanel"
+      id={`panel-${id}`}
+      aria-labelledby={`tab-${id}`}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 function Footer({ state }: { state: DashboardState }) {
   return (
-    <footer className="max-w-7xl mx-auto px-6 py-6 border-t border-white/[0.06] text-xs text-neutral-400">
+    <footer className="mx-auto max-w-7xl border-t border-white/[0.06] px-4 py-6 text-xs text-neutral-400 sm:px-6">
       <p className="mb-2">
         Single-instance by design: one process, one JSON snapshot written synchronously after
         every mutation.

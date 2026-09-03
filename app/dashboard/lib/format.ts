@@ -9,9 +9,29 @@ export function rupees(paisa: number): string {
   return `₹${RUPEE_FORMAT.format(paisa / 100)}`;
 }
 
-/** Paisa alongside rupees, for places where the exact integer matters. */
-export function rupeesWithPaisa(paisa: number): string {
-  return `${rupees(paisa)} (${paisa.toLocaleString("en-IN")} p)`;
+/** Converts engine-generated money phrases into the UI's rupee format. */
+export function displayMoneyText(text: string): string {
+  // First collapse forensic audit pairs like "₹420.00 (42000 paisa)" into a single clean rupee string
+  let result = text.replace(/₹[\d,]+(?:\.\d{2})?\s+\((\d[\d,]*)\s+pais[ae]\)/gi, (_, amount: string) => {
+    const paisa = Number(amount.replace(/,/g, ""));
+    return Number.isFinite(paisa) ? rupees(paisa) : `${amount} paisa`;
+  });
+
+  // Convert any remaining standalone paisa/paise mentions (e.g. 763200 paisa -> ₹7,632.00)
+  result = result.replace(/(\d[\d,]*)\s+pais[ae]\b/gi, (_, amount: string) => {
+    const paisa = Number(amount.replace(/,/g, ""));
+    return Number.isFinite(paisa) ? rupees(paisa) : `${amount} paisa`;
+  });
+
+  // Normalize all rupee amounts to canonical ₹X,XXX.00 with Indian commas and 2 decimals
+  result = result.replace(/₹(\d[\d,]*)(?:\.(\d{2}))?\b/g, (match, intPart: string, decPart?: string) => {
+    const cleanInt = Number(intPart.replace(/,/g, ""));
+    if (!Number.isFinite(cleanInt)) return match;
+    const total = decPart !== undefined ? cleanInt + Number(decPart) / 100 : cleanInt;
+    return `₹${RUPEE_FORMAT.format(total)}`;
+  });
+
+  return result;
 }
 
 export function percentOf(part: number, whole: number): number {

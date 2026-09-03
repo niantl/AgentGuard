@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Toaster } from "sonner";
+import { NotificationProvider } from "./dashboard/components/NotificationProvider";
+import { fontVariables } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,24 +12,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      // `dark` is static, not toggleable: the third-party chart primitives gate
+      // some of their tokens on the class, and this product has no light mode.
+      className={`dark ${fontVariables}`}
+      suppressHydrationWarning
+    >
       <body
-        className="min-h-screen bg-neutral-900 font-sans text-sm leading-relaxed text-neutral-200 antialiased"
+        className="min-h-screen bg-surface-dark font-sans text-sm leading-relaxed text-neutral-200 antialiased"
         suppressHydrationWarning
       >
         {children}
-        <Toaster
-          position="top-right"
-          theme="dark"
-          richColors
-          closeButton
-          expand
-          style={{
-            "--font-size": "14px",
-            "--padding": "12px",
-            "--border-radius": "8px",
-          } as React.CSSProperties}
-        />
+        <NotificationProvider />
       </body>
     </html>
   );

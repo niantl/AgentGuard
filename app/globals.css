@@ -2,34 +2,64 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   Design tokens
+   The product is dark-only (`color-scheme: dark`), so there is one palette and
+   `.dark` merely mirrors it for third-party components that gate on the class.
+   ========================================================================== */
+
 :root {
   color-scheme: dark;
-  --chart-1: #0066FF;
-  --chart-2: #00B386;
-  --chart-3: #FFB800;
-  --chart-4: #FF3333;
-  --chart-5: #6366F1;
+
+  /* Surfaces & text */
+  --page: #0b0f19;
+  --card: #11192e;
+  --foreground: #eaf0f9;
+  --muted-foreground: #8494b4;
+  --border: rgba(255, 255, 255, 0.08);
+  --ring: #7ba8ff;
+
+  /* Semantic — mirrors the Tailwind accent tokens */
+  --brand: #0066ff;
+  --ok: #00b386;
+  --warn: #ffb800;
+  --bad: #ff3333;
 }
 
 html,
 body {
-  background-color: #0b0f19;
-  background-image: 
+  background-color: var(--page);
+  background-image:
     radial-gradient(circle at 50% -10%, rgba(0, 102, 255, 0.12) 0%, transparent 60%),
     radial-gradient(circle at 10% 40%, rgba(0, 179, 134, 0.04) 0%, transparent 40%);
-  color: #f1f5f9;
+  color: var(--foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
 }
 
+/* Tabular figures are the default across the whole product, not an opt-in.
+   Every rupee amount, percentage, TTL and block count sits in a column that has
+   to align with the one above it, and there is no body copy here long enough to
+   benefit from proportional digits. */
 body {
   font-feature-settings: "tnum" 1, "cv02" 1;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Numeric tabular formatting for currency and hashes */
+/* Retained because a large amount of markup already carries it, and because it
+   re-asserts tabular figures inside anything that resets font-variant. */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Headings and KPI figures take the display face. */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display), "Space Grotesk", sans-serif;
+  letter-spacing: -0.011em;
 }
 
 ::selection {
@@ -44,23 +74,26 @@ body {
 }
 
 *::-webkit-scrollbar-track {
-  background: #0b0f19;
+  background: var(--page);
 }
 
 *::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #333f57;
   border-radius: 6px;
-  border: 2px solid #0b0f19;
+  border: 2px solid var(--page);
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #4d5c78;
 }
 
-/* Razorpay focus ring */
+/* Baseline focus indicator. Components that style their own ring add
+   `focus-visible:outline-none` and take over; anything that does not is still
+   guaranteed a visible, brand-coloured indicator rather than nothing. */
 :focus-visible {
-  outline: 2px solid #0066ff;
+  outline: 2px solid var(--ring);
   outline-offset: 2px;
+  border-radius: 4px;
 }
 
 @keyframes agentguard-pulse {
@@ -77,4 +110,80 @@ body {
 
 .pulse-dot {
   animation: agentguard-pulse 1.8s ease-in-out infinite;
+}
+
+/* ============================================================================
+   Reduced motion
+   Motion in this product encodes meaning — a pipeline step resolving, an
+   escalation timer draining. So movement is removed while state changes stay
+   legible: transitions collapse to near-instant rather than being cancelled
+   mid-flight, and looping attention-getters stop entirely.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .pulse-dot {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* ============================================================================
+   Chart tokens (@bklit/* components read these)
+   The registry ships a grayscale default palette; these override it with the
+   product's own colours so the charts are not a visually foreign island.
+   ========================================================================== */
+
+@layer base {
+  :root,
+  .dark {
+    --chart-1: #0066ff;
+    --chart-2: #00b386;
+    --chart-3: #ffb800;
+    --chart-4: #ff3333;
+    --chart-5: #7ba8ff;
+
+    --chart-background: transparent;
+    --chart-foreground: #eaf0f9;
+    --chart-foreground-muted: #8494b4;
+
+    --chart-line-primary: var(--chart-1);
+    --chart-line-secondary: var(--chart-2);
+    --chart-indicator-color: var(--chart-1);
+    --chart-indicator-secondary-color: var(--chart-2);
+
+    --chart-crosshair: rgba(123, 168, 255, 0.55);
+    --chart-grid: rgba(255, 255, 255, 0.06);
+    --chart-brush-border: rgba(255, 255, 255, 0.12);
+    --chart-label: #8494b4;
+
+    --chart-tooltip-background: rgba(11, 15, 25, 0.94);
+    --chart-tooltip-foreground: #f6f8fc;
+    --chart-tooltip-muted: #8494b4;
+
+    --chart-marker-background: #1e2740;
+    --chart-marker-border: #4d5c78;
+    --chart-marker-foreground: #eaf0f9;
+    --chart-marker-badge-background: #0066ff;
+    --chart-marker-badge-foreground: #ffffff;
+
+    --chart-segment-background: rgba(123, 168, 255, 0.1);
+    --chart-segment-line: rgba(123, 168, 255, 0.35);
+
+    /* Sequential ramp, brand blue → light. Used by scale/heatmap variants. */
+    --chart-scale-01: #14213d;
+    --chart-scale-02: #1b3a6b;
+    --chart-scale-03: #17539c;
+    --chart-scale-04: #0f6fd6;
+    --chart-scale-05: #4d95ff;
+    --chart-scale-pattern-color: rgba(123, 168, 255, 0.25);
+  }
 }

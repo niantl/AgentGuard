@@ -1,10 +1,15 @@
 "use client";
 
+import { motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { Loader2, Timer, UserCheck, ShieldAlert } from "lucide-react";
+import { Loader2, PenLine, Timer, UserCheck, ShieldAlert } from "lucide-react";
 import type { PendingEscalationView } from "@/runtime/agentGuardRuntime";
-import { Badge, Button, Card, EmptyState } from "./ui";
+import { Badge, Button, Card, EmptyState, FOCUS_RING } from "./ui";
 import { rupees, shortHash } from "../lib/format";
+import { DEFAULT_APPROVER_ID } from "../lib/constants";
+import { useMotionKit } from "../lib/motion";
+
+const APPROVER_INPUT_ID = "active-approver-id";
 
 /**
  * Human-in-the-loop control.
@@ -29,6 +34,8 @@ export function EscalationPanel({
     decision: "approve" | "deny",
   ) => void;
 }) {
+  const isModified = approverId.trim() !== DEFAULT_APPROVER_ID;
+
   return (
     <Card
       title="Human Approval Queue (Escalation Gate)"
@@ -37,7 +44,7 @@ export function EscalationPanel({
       actions={
         escalations.length > 0 ? (
           <Badge tone="warn">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 pulse-dot mr-1" />
+            <span className="pulse-dot mr-1 h-1.5 w-1.5 rounded-full bg-amber-400" />
             {escalations.length} {escalations.length === 1 ? "Escalation" : "Escalations"} Pending
           </Badge>
         ) : (
@@ -47,29 +54,51 @@ export function EscalationPanel({
       className="border-amber-500/20 bg-[#11192E]/95 shadow-xl backdrop-blur-md"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/[0.06] bg-[#0B0F19]/80 px-3.5 py-2.5">
-        <label className="flex items-center gap-2 text-xs text-neutral-400">
-          <span className="uppercase tracking-wider font-semibold text-[10px] text-neutral-400">
-            Active Approver ID:
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <label
+            htmlFor={APPROVER_INPUT_ID}
+            className="font-display text-[10px] font-semibold uppercase tracking-[0.1em] text-neutral-400"
+          >
+            Active Approver ID
+          </label>
           <input
+            id={APPROVER_INPUT_ID}
+            name="approverId"
+            type="text"
             value={approverId}
+            aria-label="Active Approver ID"
+            aria-describedby={`${APPROVER_INPUT_ID}-hint`}
             onChange={(event) => onApproverIdChange(event.target.value)}
-            className="tabular font-mono rounded-md border border-white/[0.08] bg-neutral-900 px-2.5 py-1 text-xs text-white outline-none focus:border-razorpay-500 transition-colors w-48 sm:w-64"
+            className={`tabular w-48 rounded-md border bg-neutral-900 px-2.5 py-1 font-mono text-xs text-white transition-colors sm:w-64 ${FOCUS_RING} ${
+              isModified
+                ? "border-razorpay-500/70 shadow-[0_0_0_3px_rgba(0,102,255,0.12)]"
+                : "border-white/[0.08] hover:border-neutral-600"
+            }`}
             placeholder="approver identity"
           />
-        </label>
-        <span className="text-[11px] text-neutral-400">
-          HMAC signed with server secret upon approval
+          {/* The field silently determines which identity signs the next HMAC
+              token, so it says out loud when it is no longer the default. */}
+          {isModified ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-razorpay-500/40 bg-razorpay-950/60 px-2 py-0.5 font-display text-[10px] font-medium uppercase tracking-[0.08em] text-razorpay-300">
+              <PenLine size={9} />
+              Modified
+            </span>
+          ) : null}
+        </div>
+        <span id={`${APPROVER_INPUT_ID}-hint`} className="text-[11px] text-neutral-400">
+          {isModified
+            ? "Approvals below will be signed as this identity."
+            : "HMAC signed with server secret upon approval"}
         </span>
       </div>
 
       {escalations.length === 0 ? (
         <EmptyState>
           <div className="flex flex-col items-center justify-center py-2">
-            <UserCheck size={28} className="text-neutral-400 mb-2" />
+            <UserCheck size={28} className="mb-2 text-neutral-400" />
             <p className="font-medium text-neutral-300">No transactions currently awaiting human approval.</p>
-            <p className="text-[11.5px] text-neutral-400 mt-1">
-              Propose an item exceeding the approval threshold (e.g. ₹7,632 monitor) to trigger this gate.
+            <p className="mt-1 text-[11.5px] text-neutral-400">
+              Propose an item exceeding the approval threshold (e.g. ₹7,632.00 monitor) to trigger this gate.
             </p>
           </div>
         </EmptyState>
@@ -119,33 +148,50 @@ function EscalationRow({
   disabled: boolean;
   onDecide: (decision: "approve" | "deny") => void;
 }) {
+  const motionKit = useMotionKit();
   const seconds = useCountdown(escalation.reservationExpiresAt, escalation.secondsRemaining);
-  const urgent = seconds !== null && seconds <= 60;
+  const urgent = seconds !== null && seconds <= 60 && seconds > 0;
+
+  const amount = rupees(escalation.quotedAmountInPaisa);
+  const subject = escalation.itemId ? `item ${escalation.itemId}` : "this proposal";
+  const target = `${amount} for ${subject} on mandate ${escalation.authorizationId}`;
+
+  const timerLabel =
+    seconds === null
+      ? "No expiry"
+      : seconds === 0
+        ? "Expired — sweep pending"
+        : `${seconds}s TTL Remaining`;
 
   return (
     <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-950/20 via-[#11192E] to-[#0F172A] p-4 shadow-lg">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-2.5">
-            <span className="tabular font-mono text-xl font-extrabold text-amber-300">
-              {rupees(escalation.quotedAmountInPaisa)}
-            </span>
+            <span className="tabular font-mono text-xl font-extrabold text-amber-300">{amount}</span>
             {escalation.itemId ? (
-              <span className="tabular font-mono text-xs text-neutral-300 bg-neutral-900/80 px-2 py-0.5 rounded border border-white/[0.06]">
+              <span className="tabular rounded border border-white/[0.06] bg-neutral-900/80 px-2 py-0.5 font-mono text-xs text-neutral-300">
                 Item: {escalation.itemId}
               </span>
             ) : null}
-            <Badge tone={urgent ? "bad" : "warn"}>
-              <Timer size={10} />
-              {seconds === null
-                ? "No expiry"
-                : seconds === 0
-                  ? "Expired — sweep pending"
-                  : `${seconds}s TTL Remaining`}
-            </Badge>
+            {/* Under a minute the badge changes tone AND breathes, so urgency
+                survives being glanced at from across a room. The pulse comes
+                from the shared motion kit, which drops it under
+                prefers-reduced-motion rather than looping regardless. */}
+            <motion.span
+              role="timer"
+              aria-label={`Time remaining before this reservation is released: ${timerLabel}`}
+              className="inline-flex"
+              {...(urgent ? motionKit.loop([1, 1.05, 1], 1.4) : {})}
+            >
+              <Badge tone={urgent || seconds === 0 ? "bad" : "warn"}>
+                <Timer size={10} />
+                {timerLabel}
+              </Badge>
+            </motion.span>
           </div>
-          <p className="mt-1 text-xs text-neutral-300 font-medium">{escalation.purpose}</p>
-          <p className="tabular mt-0.5 text-[11px] font-mono text-neutral-400">
+          <p className="mt-1 text-xs font-medium text-neutral-300">{escalation.purpose}</p>
+          <p className="tabular mt-0.5 font-mono text-[11px] text-neutral-400">
             Idempotency Key: {shortHash(escalation.idempotencyKey, 16)} · Mandate: {escalation.authorizationId}
           </p>
         </div>
@@ -156,6 +202,7 @@ function EscalationRow({
             tone="danger"
             onClick={() => onDecide("deny")}
             disabled={disabled}
+            ariaLabel={`Deny and release ${target}`}
             title="Release the reservation and reject this proposal."
             className="px-3 py-1.5 text-xs font-semibold"
           >
@@ -166,6 +213,7 @@ function EscalationRow({
             tone="primary"
             onClick={() => onDecide("approve")}
             disabled={disabled || !escalation.canResubmit}
+            ariaLabel={`Approve and settle ${target}`}
             title={
               escalation.canResubmit
                 ? "Issue single-use HMAC token bound to this proposal and settle with Razorpay."
@@ -185,7 +233,7 @@ function EscalationRow({
       </div>
 
       {!escalation.canResubmit ? (
-        <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-950/40 p-2 text-xs text-amber-300 border border-amber-800/40">
+        <div className="mt-3 flex items-center gap-2 rounded-lg border border-amber-800/40 bg-amber-950/40 p-2 text-xs text-amber-300">
           <ShieldAlert size={14} className="shrink-0" />
           <span>The reservation survived a restart, but proposal body did not. Deny to release or re-propose.</span>
         </div>

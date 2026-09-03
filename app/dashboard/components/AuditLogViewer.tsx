@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import type { ChainVerificationResult } from "@/logger/hashChainLogger";
 import type { AuditLogBlock } from "@/types/agentGuard";
-import { Badge, Button, Card, type Tone } from "./ui";
+import { Badge, Button, Card, FOCUS_RING, type Tone } from "./ui";
 import { clockTime, shortHash } from "../lib/format";
 
 const EVENT_TONE: Array<[RegExp, Tone]> = [
@@ -156,10 +156,14 @@ export function AuditLogViewer({
       <div className="relative mb-3">
         <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
         <input
+          id="audit-ledger-filter"
+          name="auditLedgerFilter"
+          type="search"
           value={filter}
+          aria-label="Filter the audit ledger"
           onChange={(event) => setFilter(event.target.value)}
           placeholder="Filter ledger by event, authorization ID, or payload detail…"
-          className="w-full rounded-lg border border-white/[0.08] bg-[#0B0F19]/90 pl-8 pr-3 py-1.5 text-xs text-neutral-200 outline-none placeholder:text-neutral-500 focus:border-razorpay-500 transition-colors"
+          className={`w-full rounded-lg border border-white/[0.08] bg-[#0B0F19]/90 py-1.5 pl-8 pr-3 text-xs text-neutral-200 transition-colors placeholder:text-neutral-500 focus-visible:border-razorpay-500 ${FOCUS_RING}`}
         />
         {filter && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-neutral-400 font-mono">
@@ -210,6 +214,7 @@ export function AuditLogViewer({
 
 function BlockRow({ block, broken }: { block: AuditLogBlock; broken: boolean }) {
   const [open, setOpen] = useState(false);
+  const detailId = `audit-block-detail-${block.entryId}`;
 
   return (
     <div
@@ -220,7 +225,10 @@ function BlockRow({ block, broken }: { block: AuditLogBlock; broken: boolean }) 
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+        aria-expanded={open}
+        aria-controls={detailId}
+        aria-label={`${open ? "Hide" : "Show"} payload for ledger entry ${block.entryId} — ${block.event}`}
+        className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left ${FOCUS_RING}`}
       >
         <div className="grid grid-cols-12 gap-2 w-full items-center">
           <span className="col-span-2 tabular font-mono text-[10.5px] text-neutral-400 truncate">
@@ -238,13 +246,17 @@ function BlockRow({ block, broken }: { block: AuditLogBlock; broken: boolean }) 
           <div className="col-span-2 flex items-center justify-end gap-1.5 text-[10px] font-mono text-neutral-400">
             <Link2 size={10} className="text-razorpay-400 shrink-0" />
             <span className="truncate">{shortHash(block.currentHash, 8)}</span>
-            {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {open ? (
+              <ChevronUp size={12} aria-hidden="true" />
+            ) : (
+              <ChevronDown size={12} aria-hidden="true" />
+            )}
           </div>
         </div>
       </button>
 
       {open ? (
-        <div className="border-t border-white/[0.06] bg-[#070A12] px-4 py-3">
+        <div id={detailId} className="border-t border-white/[0.06] bg-[#070A12] px-4 py-3">
           {broken ? (
             <div className="mb-2.5 rounded border border-rose-600/50 bg-rose-950/60 p-2 text-xs text-rose-300 flex items-center gap-2">
               <ShieldX size={14} className="shrink-0" />
@@ -253,7 +265,7 @@ function BlockRow({ block, broken }: { block: AuditLogBlock; broken: boolean }) 
           ) : null}
 
           <p className="text-[10px] uppercase tracking-wider text-neutral-400 font-semibold mb-1">
-            Canonical Block Payload (JSON)
+            Canonical Block Payload (Raw Audit Data — Amounts in Integer Paisa)
           </p>
           <pre className="max-h-56 overflow-auto rounded-lg bg-[#0B0F19] border border-white/[0.06] p-2.5 font-mono text-[10.5px] leading-relaxed text-neutral-300">
             {JSON.stringify(block.details, null, 2)}

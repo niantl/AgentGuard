@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import {
   Check,
   ChevronRight,
@@ -14,7 +14,9 @@ import {
 import type { PipelineStep, PipelineStepStatus } from "@/types/agentGuard";
 import type { LastRunRecord } from "@/runtime/agentGuardRuntime";
 import { Badge, Card, type Tone } from "./ui";
-import { clockTime, humanizeCode } from "../lib/format";
+import { clockTime, displayMoneyText, humanizeCode } from "../lib/format";
+import { errorLabel, errorMessage } from "../lib/errorMessages";
+import { useMotionKit } from "../lib/motion";
 
 /**
  * The canonical seven-step decision pipeline from engine/guardrailEngine.ts (lines 49-57).
@@ -112,6 +114,8 @@ const STATUS_META: Record<
     label: "standby",
     nodeBg: "bg-neutral-900/60",
     nodeBorder: "border-neutral-700/60",
+    // 4.69:1 on the card surface. Subordinate to the active states, but still
+    // legible — a step that was never reached is information, not decoration.
     textColor: "text-neutral-500",
     lineColor: "bg-neutral-800",
   },
@@ -125,6 +129,7 @@ function outcomeTone(record: LastRunRecord): Tone {
 }
 
 export function PipelineVisualizer({ lastRun }: { lastRun: LastRunRecord | null }) {
+  const motionKit = useMotionKit();
   return (
     <Card
       title="Deterministic Guardrail Pipeline"
@@ -180,8 +185,11 @@ export function PipelineVisualizer({ lastRun }: { lastRun: LastRunRecord | null 
                 </span>
               ) : null}
               {lastRun.code ? (
-                <span className="tabular rounded bg-rose-950/60 border border-rose-700/50 px-2 py-0.5 text-[11px] font-mono text-rose-300">
-                  {lastRun.code}
+                <span
+                  title={errorMessage(lastRun.code)}
+                  className="rounded border border-rose-700/50 bg-rose-950/60 px-2 py-0.5 text-[11px] font-medium text-rose-300"
+                >
+                  {errorLabel(lastRun.code)}
                 </span>
               ) : null}
             </div>
@@ -206,8 +214,7 @@ export function PipelineVisualizer({ lastRun }: { lastRun: LastRunRecord | null 
           {/* Verdict callout */}
           {lastRun.reason ? (
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
+              {...motionKit.rise(0, 8)}
               className={`mt-4 flex items-start gap-3 rounded-lg border p-3 text-[11.5px] leading-relaxed ${
                 lastRun.outcome === "EXECUTED" || lastRun.outcome === "SCENARIO_PASSED"
                   ? "border-emerald-500/30 bg-emerald-950/30 text-emerald-200"
@@ -227,7 +234,7 @@ export function PipelineVisualizer({ lastRun }: { lastRun: LastRunRecord | null 
                 <span className="font-semibold uppercase tracking-wider text-[10px] block mb-0.5">
                   {lastRun.code ? humanizeCode(lastRun.code) : "Pipeline Verdict"}
                 </span>
-                {lastRun.reason}
+                {displayMoneyText(lastRun.reason)}
               </div>
             </motion.div>
           ) : null}
@@ -246,22 +253,17 @@ function StepRow({
   isLast: boolean;
   index: number;
 }) {
+  const motionKit = useMotionKit();
   const meta = STATUS_META[step.status];
   const Icon = meta.icon;
   const isNotReached = step.status === "NOT_REACHED";
 
   return (
-    <motion.li
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.04 }}
-      className="flex gap-3"
-    >
+    <motion.li {...motionKit.slideIn(index, 8)} className="flex gap-3">
       {/* Logistics connector rail */}
       <div className="flex flex-col items-center pt-0.5">
         <motion.span
-          animate={step.status === "ESCALATED" ? { scale: [1, 1.15, 1] } : {}}
-          transition={{ repeat: Infinity, duration: 1.8 }}
+          {...(step.status === "ESCALATED" ? motionKit.loop([1, 1.15, 1]) : {})}
           className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${meta.nodeBg} ${meta.nodeBorder} ${meta.textColor}`}
         >
           <Icon size={12} strokeWidth={2.8} />
@@ -275,18 +277,35 @@ function StepRow({
         ) : null}
       </div>
 
-      {/* Step details */}
-      <div className={`flex-1 pb-3 ${isNotReached ? "opacity-40" : ""}`}>
+      {/* Step details.
+          A not-reached step is recessed by colour alone. It used to be wrapped
+          in `opacity-40`, which multiplied through every child and dropped the
+          label under 2:1 against the card — a fine look, an unreadable one. */}
+      <div className="flex-1 pb-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="tabular font-mono text-[10px] font-semibold text-neutral-400 bg-neutral-800/80 px-1.5 py-0.5 rounded">
+          <span
+            className={`tabular rounded bg-neutral-800/80 px-1.5 py-0.5 font-mono text-[10px] font-semibold ${
+              isNotReached ? "text-neutral-500" : "text-neutral-400"
+            }`}
+          >
             0{step.step}
           </span>
-          <span className="text-[12.5px] font-medium text-neutral-100">{step.name}</span>
+          <span
+            className={`text-[12.5px] font-medium ${
+              isNotReached ? "text-neutral-400" : "text-neutral-100"
+            }`}
+          >
+            {step.name}
+          </span>
           <Badge tone={meta.tone}>{meta.label}</Badge>
         </div>
-        {step.detail ? (
-          <p className="mt-1 text-[11.5px] leading-relaxed text-neutral-400 font-normal">
-            {step.detail}
+            {step.detail ? (
+          <p
+            className={`mt-1 text-[11.5px] font-normal leading-relaxed ${
+              isNotReached ? "text-neutral-500" : "text-neutral-400"
+            }`}
+          >
+            {displayMoneyText(step.detail)}
           </p>
         ) : null}
       </div>
@@ -302,7 +321,9 @@ function StandbyStepRow({
   isLast: boolean;
 }) {
   return (
-    <li className="flex gap-3 opacity-60 hover:opacity-100 transition-opacity">
+    // No blanket opacity here either: the standby track is the first thing on
+    // screen before any run, so it has to be readable at rest, not on hover.
+    <li className="flex gap-3">
       <div className="flex flex-col items-center pt-0.5">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-neutral-700 bg-neutral-900 text-neutral-500">
           <CircleDashed size={12} strokeWidth={2} />
@@ -312,15 +333,15 @@ function StandbyStepRow({
 
       <div className="flex-1 pb-3">
         <div className="flex items-center gap-2">
-          <span className="tabular font-mono text-[10px] font-semibold text-neutral-500 bg-neutral-800/60 px-1.5 py-0.5 rounded">
+          <span className="tabular font-mono text-[10px] font-semibold text-neutral-400 bg-neutral-800/60 px-1.5 py-0.5 rounded">
             0{step.step}
           </span>
           <span className="text-[12px] font-medium text-neutral-300">{step.name}</span>
-          <span className="text-[9.5px] uppercase tracking-wider text-neutral-500 border border-neutral-700/50 rounded px-1.5 py-0.5">
+          <span className="rounded border border-neutral-700/50 px-1.5 py-0.5 font-display text-[9.5px] uppercase tracking-[0.08em] text-neutral-400">
             standby
           </span>
         </div>
-        <p className="mt-0.5 text-[11px] text-neutral-500">{step.description}</p>
+        <p className="mt-0.5 text-[11px] text-neutral-400">{step.description}</p>
       </div>
     </li>
   );

@@ -3,7 +3,7 @@
 import { ShieldCheck, AlertTriangle, KeyRound } from "lucide-react";
 import type { PolicyView } from "@/runtime/agentGuardRuntime";
 import { Badge, Card, Field, Relative, type Tone } from "./ui";
-import { dateTime, percentOf, rupees, rupeesWithPaisa } from "../lib/format";
+import { dateTime, percentOf, rupees } from "../lib/format";
 
 const STATUS_TONE: Record<string, Tone> = {
   ACTIVE: "ok",
@@ -69,7 +69,7 @@ export function PolicyCard({ policy }: { policy: PolicyView | null }) {
           <div
             className="absolute inset-y-0 left-0 bg-emerald-500 rounded-l-full"
             style={{ width: `${consumedPct}%` }}
-            title={`Committed: ${rupeesWithPaisa(consumedAmountInPaisa)}`}
+            title={`Committed: ${rupees(consumedAmountInPaisa)}`}
           />
           {/* In-flight reservation */}
           <div
@@ -80,7 +80,7 @@ export function PolicyCard({ policy }: { policy: PolicyView | null }) {
               backgroundImage:
                 "repeating-linear-gradient(135deg, rgba(255,255,255,0.22) 0 3px, transparent 3px 7px)",
             }}
-            title={`Reserved (in escrow): ${rupeesWithPaisa(reservedAmountInPaisa)}`}
+            title={`Reserved (in escrow): ${rupees(reservedAmountInPaisa)}`}
           />
           {/* Human approval threshold */}
           {thresholdPct < 100 ? (

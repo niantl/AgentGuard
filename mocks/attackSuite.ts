@@ -306,7 +306,7 @@ const priceSlippageScenario: ScenarioDefinition = {
       finalPipeline: result.steps,
       steps: [
         {
-          label: "Agent proposes a monitor purchase it believes costs ₹4,500",
+          label: "Agent proposes a monitor purchase it believes costs ₹4,500.00",
           proposal: summarizeProposal(proposal),
           note: `Policy cap is ${policy.constraints.maxAmountInPaisa} paisa.`,
         },
@@ -687,7 +687,7 @@ const sequentialDrainScenario: ScenarioDefinition = {
       expectation: sequentialDrainScenario.expectation,
       passed,
       verdict: passed
-        ? `Two purchases committed (360,000 paisa). The third was blocked at step 4: 360,000 consumed + 180,000 quoted = 540,000 against a 500,000 cap. Gateway invoked ${gatewayCallsMade}×.`
+        ? `Two purchases committed (360,000 paisa). The third was blocked at step 4: 360,000 paisa consumed + 180,000 paisa quoted = 540,000 paisa against a 500,000 paisa cap. Gateway invoked ${gatewayCallsMade}×.`
         : `UNEXPECTED: consumed=${policy.state.consumedAmountInPaisa}, results=${results.map(describeResult).join(" | ")}`,
       authorizationId,
       policy: policySnapshot(policy),
@@ -768,7 +768,7 @@ const concurrentDrainScenario: ScenarioDefinition = {
       expectation: concurrentDrainScenario.expectation,
       passed,
       verdict: passed
-        ? `One committed, one blocked. Consumed ${policy.state.consumedAmountInPaisa} of ${policy.constraints.maxAmountInPaisa} paisa; gateway invoked ${gatewayCallsMade}×. The check-and-reserve block in step 4 contains no await, so the second proposal saw the first one's reservation.`
+        ? `One committed, one blocked. Consumed ${policy.state.consumedAmountInPaisa} paisa of ${policy.constraints.maxAmountInPaisa} paisa; gateway invoked ${gatewayCallsMade}×. The check-and-reserve block in step 4 contains no await, so the second proposal saw the first one's reservation.`
         : `UNEXPECTED: ${successes.length} success(es), ${blocked.length} cap block(s), consumed=${policy.state.consumedAmountInPaisa}, gatewayCalls=${gatewayCallsMade}`,
       authorizationId,
       policy: policySnapshot(policy),
@@ -820,7 +820,7 @@ const approvalForgeryScenario: ScenarioDefinition = {
       createAuthorizationPolicy({
         authorizationId,
         userId: "user_priya",
-        purpose: "Buy ergonomic chairs, with sign-off above ₹3,000",
+        purpose: "Buy ergonomic chairs, with sign-off above ₹3,000.00",
         maxAmountInPaisa: 1_000_000,
         allowedCategories: ["office_supplies"],
         allowedMerchants: ["merchant_officedepot_in"],
@@ -1035,7 +1035,7 @@ const approvalForgeryScenario: ScenarioDefinition = {
       expectation: approvalForgeryScenario.expectation,
       passed,
       verdict: passed
-        ? `All three forged tokens rejected with ERR_INVALID_APPROVAL_TOKEN, each releasing its ${400_000} paisa reservation back to zero. Only the one genuine approval reached Razorpay (${gatewayCallsMade} call, ${policy.state.consumedAmountInPaisa} paisa committed).`
+        ? `All three forged tokens rejected with ERR_INVALID_APPROVAL_TOKEN, each releasing its ${400_000} paisa reservation back to zero. Only the one genuine approval reached Razorpay (${gatewayCallsMade} call${gatewayCallsMade === 1 ? "" : "s"}, ${policy.state.consumedAmountInPaisa} paisa committed).`
         : `UNEXPECTED: allRejected=${allRejected}, allReleased=${allReleased}, gatewayCalls=${gatewayCallsMade}, consumed=${policy.state.consumedAmountInPaisa}`,
       authorizationId,
       policy: policySnapshot(policy),

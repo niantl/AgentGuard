@@ -1,7 +1,10 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { ShieldCheck, AlertTriangle, AlertCircle } from "lucide-react";
+import { ChartSkeleton, useChartReady } from "./ChartSkeleton";
+import { useMotionKit } from "../../lib/motion";
+import { rupees } from "../../lib/format";
 
 interface BudgetUtilizationGaugeProps {
   consumedPaisa: number;
@@ -14,6 +17,8 @@ export function BudgetUtilizationGauge({
   reservedPaisa,
   totalBudgetPaisa,
 }: BudgetUtilizationGaugeProps) {
+  const motionKit = useMotionKit();
+  const ready = useChartReady();
   const safeBudget = Math.max(totalBudgetPaisa, 1);
   const totalCommitted = consumedPaisa + reservedPaisa;
   const percentage = Math.min(Math.max((totalCommitted / safeBudget) * 100, 0), 100);
@@ -37,14 +42,6 @@ export function BudgetUtilizationGauge({
       : "#00B386"; // Razorpay Emerald
 
   const gradientId = "budget-gauge-gradient";
-
-  const formatLakhs = (paisa: number) => {
-    const rupees = paisa / 100;
-    if (rupees >= 100000) {
-      return `₹${(rupees / 100000).toFixed(2)}L`;
-    }
-    return `₹${rupees.toLocaleString("en-IN")}`;
-  };
 
   return (
     <div className="flex flex-col items-center justify-between rounded-xl border border-white/[0.08] bg-[#11192E]/90 p-5 shadow-xl backdrop-blur-md">
@@ -73,80 +70,133 @@ export function BudgetUtilizationGauge({
       </div>
 
       {/* SVG Semi-Radial Gauge */}
-      <div className="relative my-4 flex items-center justify-center">
-        <svg
-          width={size}
-          height={size / 2 + 30}
-          viewBox={`0 0 ${size} ${size / 2 + 30}`}
-          className="overflow-visible"
-        >
-          <defs>
-            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#00B386" />
-              <stop offset="70%" stopColor="#FFB800" />
-              <stop offset="100%" stopColor="#FF3333" />
-            </linearGradient>
-          </defs>
-
-          {/* Background track arc */}
-          <path
-            d={`M ${strokeWidth / 2} ${size / 2} A ${radius} ${radius} 0 0 1 ${size - strokeWidth / 2} ${size / 2}`}
-            fill="none"
-            stroke="#1e293b"
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-          />
-
-          {/* Foreground animated value arc */}
-          <motion.path
-            d={`M ${strokeWidth / 2} ${size / 2} A ${radius} ${radius} 0 0 1 ${size - strokeWidth / 2} ${size / 2}`}
-            fill="none"
-            stroke={`url(#${gradientId})`}
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
-          />
-
-          {/* Notch tick markers */}
-          {[0, 25, 50, 75, 100].map((tick) => {
-            const angle = Math.PI - (tick / 100) * Math.PI;
-            const innerR = radius - 16;
-            const outerR = radius - 24;
-            const cx = size / 2;
-            const cy = size / 2;
-            const x1 = cx + innerR * Math.cos(angle);
-            const y1 = cy - innerR * Math.sin(angle);
-            const x2 = cx + outerR * Math.cos(angle);
-            const y2 = cy - outerR * Math.sin(angle);
-
-            return (
-              <line
-                key={tick}
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
-                stroke="#475569"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-              />
-            );
-          })}
-        </svg>
-
-        {/* Center Readout Text */}
-        <div className="absolute top-[52%] left-1/2 -translate-x-1/2 flex flex-col items-center">
-          <span className="tabular font-mono text-3xl font-extrabold text-white tracking-tight">
-            {percentage.toFixed(1)}%
-          </span>
-          <span className="text-[10.5px] uppercase tracking-wider text-neutral-400 font-medium mt-0.5">
-            Capacity Utilized
-          </span>
+      {!ready ? (
+        <div className="my-4 w-full">
+          <ChartSkeleton shape="arc" height={size / 2 + 30} label="Loading budget gauge" />
         </div>
-      </div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={motionKit.t({ duration: 0.25 })}
+          className="relative my-4 flex items-center justify-center"
+        >
+          <svg
+            width={size}
+            height={size / 2 + 30}
+            viewBox={`0 0 ${size} ${size / 2 + 30}`}
+            className="overflow-visible"
+          >
+            <defs>
+              <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#00B386" />
+                <stop offset="70%" stopColor="#FFB800" />
+                <stop offset="100%" stopColor="#FF3333" />
+              </linearGradient>
+            </defs>
+
+            {/* Background track arc */}
+            <path
+              d={`M ${strokeWidth / 2} ${size / 2} A ${radius} ${radius} 0 0 1 ${size - strokeWidth / 2} ${size / 2}`}
+              fill="none"
+              stroke="#1e2740"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+            />
+
+            {/* Foreground animated value arc */}
+            <motion.path
+              d={`M ${strokeWidth / 2} ${size / 2} A ${radius} ${radius} 0 0 1 ${size - strokeWidth / 2} ${size / 2}`}
+              fill="none"
+              stroke={`url(#${gradientId})`}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              initial={{ strokeDashoffset: circumference }}
+              animate={{ strokeDashoffset }}
+              transition={motionKit.t({ duration: 1.2, ease: "easeOut" })}
+            />
+
+            {/* Notch tick markers */}
+            {[0, 25, 50, 75, 100].map((tick) => {
+              const angle = Math.PI - (tick / 100) * Math.PI;
+              const innerR = radius - 16;
+              const outerR = radius - 24;
+              const cx = size / 2;
+              const cy = size / 2;
+              const x1 = cx + innerR * Math.cos(angle);
+              const y1 = cy - innerR * Math.sin(angle);
+              const x2 = cx + outerR * Math.cos(angle);
+              const y2 = cy - outerR * Math.sin(angle);
+
+              return (
+                <line
+                  key={tick}
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke="#4d5c78"
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                />
+              );
+            })}
+
+            {/* Animated Needle Indicator */}
+            <motion.g
+              initial={{ rotate: -90 }}
+              animate={{ rotate: -90 + (percentage / 100) * 180 }}
+              transition={motionKit.t({ duration: 1.2, ease: "easeOut" })}
+              style={{ transformOrigin: "130px 130px" }}
+            >
+              {/* Needle shaft */}
+              <line
+                x1="130"
+                y1="130"
+                x2="130"
+                y2="20"
+                stroke={statusColor}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                opacity="0.9"
+              />
+              {/* Glowing needle tip marker right at the arc */}
+              <circle
+                cx="130"
+                cy="17"
+                r="3.5"
+                fill={statusColor}
+              />
+              {/* Center pivot hub */}
+              <circle
+                cx="130"
+                cy="130"
+                r="6.5"
+                fill="#0B0F19"
+                stroke={statusColor}
+                strokeWidth="2"
+              />
+              <circle
+                cx="130"
+                cy="130"
+                r="2.5"
+                fill={statusColor}
+              />
+            </motion.g>
+          </svg>
+
+          {/* Center Readout Text */}
+          <div className="absolute top-[52%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none z-10 bg-[#11192E]/80 backdrop-blur-sm px-3 py-1 rounded-lg border border-white/[0.04]">
+            <span className="tabular font-mono text-3xl font-extrabold text-white tracking-tight">
+              {percentage.toFixed(1)}%
+            </span>
+            <span className="mt-0.5 font-display text-[10.5px] font-medium uppercase tracking-[0.1em] text-neutral-400">
+              Capacity Utilized
+            </span>
+          </div>
+        </motion.div>
+      )}
 
       {/* Footer Metrics Pill Strip */}
       <div className="grid grid-cols-2 gap-3 w-full border-t border-white/[0.06] pt-3">
@@ -155,7 +205,7 @@ export function BudgetUtilizationGauge({
             Available Headroom
           </p>
           <p className="tabular font-mono text-sm font-semibold text-emerald-400 mt-0.5">
-            {formatLakhs(availablePaisa)}
+            {rupees(availablePaisa)}
           </p>
         </div>
         <div className="rounded-lg bg-neutral-900/60 p-2.5 border border-white/[0.04] text-center">
@@ -163,7 +213,7 @@ export function BudgetUtilizationGauge({
             In Escrow Review
           </p>
           <p className="tabular font-mono text-sm font-semibold text-amber-400 mt-0.5">
-            {formatLakhs(reservedPaisa)}
+            {rupees(reservedPaisa)}
           </p>
         </div>
       </div>

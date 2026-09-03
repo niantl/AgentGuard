@@ -13,8 +13,9 @@ import {
 import type { ScenarioOutcome, ScenarioStepReport } from "@/mocks/attackSuite";
 import type { DashboardState, LiveDemoAction } from "@/runtime/agentGuardRuntime";
 import type { TransactionResult } from "@/types/agentGuard";
-import { Badge, Button, Card, EmptyState } from "./ui";
-import { rupees } from "../lib/format";
+import { Badge, Button, Card, EmptyState, FOCUS_RING } from "./ui";
+import { displayMoneyText, rupees } from "../lib/format";
+import { errorLabel, errorMessage } from "../lib/errorMessages";
 
 /**
  * Interactive simulation panel.
@@ -83,7 +84,7 @@ export function SimulationPanel({
         </div>
       ) : (
         <div className="space-y-2">
-          <p className="mb-1 text-[11px] leading-relaxed text-slate-500">
+          <p className="mb-1 text-[11px] leading-relaxed text-neutral-400">
             These are ordinary proposals from the agent against the mandate above. The agent
             names an item and a merchant; it never names the amount that gets charged —
             AgentGuard fetches its own quote and decides.
@@ -116,10 +117,11 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold tracking-wide transition-all ${
+      aria-pressed={active}
+      className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold tracking-wide transition-colors ${FOCUS_RING} ${
         active
-          ? "bg-razorpay-500/20 text-razorpay-300 border-b-2 border-razorpay-400"
-          : "text-neutral-400 hover:text-neutral-200 hover:bg-white/[0.04]"
+          ? "border-b-2 border-razorpay-400 bg-razorpay-500/20 text-razorpay-300"
+          : "text-neutral-400 hover:bg-white/[0.04] hover:text-neutral-200"
       }`}
     >
       {children}
@@ -142,6 +144,7 @@ function ScenarioRow({
 }) {
   const [open, setOpen] = useState(false);
   const outcome = scenario.outcome;
+  const detailId = `scenario-detail-${scenario.id}`;
 
   return (
     <div
@@ -173,8 +176,8 @@ function ScenarioRow({
               </Badge>
             ) : null}
           </div>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">
-            <span className="text-slate-600">goal: </span>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-neutral-400">
+            <span className="text-neutral-500">goal: </span>
             {scenario.attackerGoal}
           </p>
           {outcome ? (
@@ -183,11 +186,11 @@ function ScenarioRow({
                 outcome.passed ? "text-emerald-300/90" : "text-rose-300"
               }`}
             >
-              {outcome.verdict}
+              {displayMoneyText(outcome.verdict)}
             </p>
           ) : (
-            <p className="mt-0.5 text-[11px] leading-relaxed text-slate-600">
-              <span className="text-slate-700">expect: </span>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-neutral-400">
+              <span className="text-neutral-500">expect: </span>
               {scenario.expectation}
             </p>
           )}
@@ -195,14 +198,27 @@ function ScenarioRow({
 
         <div className="flex shrink-0 items-center gap-1.5">
           {outcome ? (
-            <Button size="sm" tone="ghost" onClick={() => setOpen((value) => !value)}>
+            <Button
+              size="sm"
+              tone="ghost"
+              onClick={() => setOpen((value) => !value)}
+              ariaLabel={`${open ? "Hide" : "Show"} step-by-step detail for ${scenario.title}`}
+              ariaExpanded={open}
+              ariaControls={detailId}
+            >
               <ChevronDown
                 size={12}
+                aria-hidden="true"
                 className={`transition-transform ${open ? "rotate-180" : ""}`}
               />
             </Button>
           ) : null}
-          <Button size="sm" onClick={onRun} disabled={disabled}>
+          <Button
+            size="sm"
+            onClick={onRun}
+            disabled={disabled}
+            ariaLabel={`${outcome ? "Re-run" : "Run"} attack scenario: ${scenario.title}`}
+          >
             {busy ? (
               <span className="flex items-center gap-1">
                 <Loader2 size={10} className="animate-spin" /> running
@@ -216,15 +232,15 @@ function ScenarioRow({
         </div>
       </div>
 
-      {open && outcome ? <ScenarioDetail outcome={outcome} /> : null}
+      {open && outcome ? <ScenarioDetail id={detailId} outcome={outcome} /> : null}
     </div>
   );
 }
 
-function ScenarioDetail({ outcome }: { outcome: ScenarioOutcome }) {
+function ScenarioDetail({ id, outcome }: { id: string; outcome: ScenarioOutcome }) {
   return (
-    <div className="border-t border-white/[0.06] bg-[#070A12] px-4 py-3 rounded-b-xl">
-      <dl className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
+    <div id={id} className="rounded-b-xl border-t border-white/[0.06] bg-[#070A12] px-4 py-3">
+      <dl className="mb-3 grid grid-cols-1 gap-x-4 gap-y-2 text-xs sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="cap" value={rupees(outcome.policy.maxAmountInPaisa)} />
         <Stat label="committed" value={rupees(outcome.policy.consumedAmountInPaisa)} />
         <Stat
@@ -247,15 +263,15 @@ function ScenarioDetail({ outcome }: { outcome: ScenarioOutcome }) {
 function ScenarioStepLine({ index, step }: { index: number; step: ScenarioStepReport }) {
   const result = step.result;
   return (
-    <li className="flex gap-2 border-l border-ink-700 pl-2.5 text-[11px]">
-      <span className="tabular shrink-0 text-slate-600">{index}.</span>
+    <li className="flex gap-2 border-l border-razorpay-400 pl-2.5 text-[11px]">
+      <span className="tabular shrink-0 text-neutral-500">{index}.</span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-slate-300">{step.label}</span>
+          <span className="text-neutral-200">{step.label}</span>
           {result ? <ResultChip result={result} /> : null}
         </div>
         {step.note ? (
-          <p className="mt-0.5 leading-relaxed text-slate-500">{step.note}</p>
+          <p className="mt-0.5 leading-relaxed text-neutral-400">{displayMoneyText(step.note)}</p>
         ) : null}
       </div>
     </li>
@@ -270,7 +286,16 @@ function ResultChip({ result }: { result: TransactionResult }) {
       </Badge>
     );
   }
-  return <Badge tone={result.code === "PENDING_HUMAN_APPROVAL" ? "warn" : "bad"}>{result.code}</Badge>;
+  // A chip has no room for a sentence, so it carries the short label and the
+  // full plain-language explanation rides along as the tooltip.
+  return (
+    <Badge
+      tone={result.code === "PENDING_HUMAN_APPROVAL" ? "warn" : "bad"}
+      title={errorMessage(result.code)}
+    >
+      {errorLabel(result.code)}
+    </Badge>
+  );
 }
 
 function Stat({
@@ -284,8 +309,10 @@ function Stat({
 }) {
   return (
     <div>
-      <dt className="text-[10px] uppercase tracking-wider text-slate-600">{label}</dt>
-      <dd className={`tabular ${tone === "warn" ? "text-amber-300" : "text-slate-300"}`}>
+      <dt className="font-display text-[10px] uppercase tracking-[0.1em] text-neutral-400">
+        {label}
+      </dt>
+      <dd className={`tabular ${tone === "warn" ? "text-amber-300" : "text-neutral-200"}`}>
         {value}
       </dd>
     </div>
@@ -377,11 +404,11 @@ export function InjectionEvidence({ outcome }: { outcome: ScenarioOutcome | null
               <Badge tone="neutral">{report.strippedHtmlConstructCount} tags stripped</Badge>
             ) : null}
           </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-            <span className="text-slate-600">attacker wants: </span>
+          <p className="mt-1 text-[11px] leading-relaxed text-neutral-400">
+            <span className="text-neutral-500">attacker wants: </span>
             {report.injectionGoal}
           </p>
-          <pre className="mt-1.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded bg-ink-950 px-2 py-1.5 text-[10.5px] leading-relaxed text-slate-400">
+          <pre className="mt-1.5 max-h-24 overflow-auto whitespace-pre-wrap break-words rounded border border-razorpay-500/20 bg-ink-950 px-2 py-1.5 font-mono text-[10.5px] leading-relaxed text-neutral-300">
             {report.sanitized}
           </pre>
         </div>

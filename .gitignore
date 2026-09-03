@@ -12,5 +12,6 @@ next-env.d.ts
 agentguard-state.json
 agentguard-audit.json
 .tmp-test/
+.tmp-registry/
 .claude/
 
