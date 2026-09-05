@@ -22,21 +22,11 @@ export interface SecretProvider {
 // Environment variable provider (current default behavior)
 // ---------------------------------------------------------------------------
 
-const DEV_FALLBACK_SECRET =
-  "agentguard-dev-only-secret-do-not-use-in-production-0000000000000000";
+import { getServerSecret } from "@/security/crypto";
 
 export class EnvSecretProvider implements SecretProvider {
   async getHmacSecret(): Promise<Buffer> {
-    const secret = process.env.AGENTGUARD_SERVER_SECRET;
-    if (secret && secret.length >= 16 && secret !== "replace-with-a-long-random-string") {
-      return Buffer.from(secret, "utf8");
-    }
-    if (process.env.NODE_ENV === "production" || process.env.AGENTGUARD_ENV === "production") {
-      throw new Error(
-        "[AgentGuard] AGENTGUARD_SERVER_SECRET must be set to a secure string (at least 16 characters) in production. Refusing to use dev fallback secret.",
-      );
-    }
-    return Buffer.from(DEV_FALLBACK_SECRET, "utf8");
+    return Buffer.from(getServerSecret(), "utf8");
   }
 }
 

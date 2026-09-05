@@ -7,8 +7,8 @@ import crypto from "node:crypto";
  * process. It is not placed in any prompt, tool schema, or agent-visible payload.
  */
 
-const DEV_FALLBACK_SECRET =
-  "agentguard-dev-only-secret-do-not-use-in-production-0000000000000000";
+// Ephemeral dev-only secret generated randomly per process boot so no static secret is committed in the repository
+const EPHEMERAL_DEV_SECRET = `dev-only-ephemeral-${crypto.randomBytes(32).toString("hex")}`;
 
 export function getServerSecret(): string {
   const secret = process.env.AGENTGUARD_SERVER_SECRET;
@@ -20,7 +20,7 @@ export function getServerSecret(): string {
       "[AgentGuard] AGENTGUARD_SERVER_SECRET must be set to a secure string (at least 16 characters) in production. Refusing to use dev fallback secret.",
     );
   }
-  return DEV_FALLBACK_SECRET;
+  return EPHEMERAL_DEV_SECRET;
 }
 
 export function sha256Hex(input: string): string {

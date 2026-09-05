@@ -5,7 +5,6 @@ import type { GuardrailEngine, FetchCartQuote } from "@/engine/guardrailEngine";
 import type { HashChainLogger } from "@/logger/hashChainLogger";
 import type { StateStore } from "@/state/stateStore";
 import type { AuthorizationPolicy } from "@/types/agentGuard";
-import { handleApprovalRequest } from "@/api/approve";
 
 /**
  * AgentGuard MCP Server — Model Context Protocol wrapper around the existing engine.
@@ -18,8 +17,12 @@ import { handleApprovalRequest } from "@/api/approve";
  *
  * - `propose_transaction` — calls `engine.processTransaction` directly
  * - `get_policy_status` — read-only projection of consumed/reserved/status
- * - `approve_escalation` — calls the existing `/agentguard/approve` logic
  * - `verify_audit_chain` — calls `verifyChainIntegrity()`
+ *
+ * NOTE: `approve_escalation` is intentionally NOT exposed on this agent-facing
+ * MCP surface. An autonomous buying agent must never hold the authority to approve
+ * its own financial escalations. Approvals are strictly restricted to the human-in-
+ * the-loop interface.
  */
 
 export interface McpServerDeps {
@@ -108,37 +111,6 @@ export function createAgentGuardMcpServer(deps: McpServerDeps): McpServer {
             status: persisted.status,
           }),
         }],
-      };
-    },
-  );
-
-  // ---- approve_escalation -------------------------------------------------
-  server.tool(
-    "approve_escalation",
-    "Approve or deny an escalated transaction that is awaiting human decision.",
-    {
-      authorizationId: z.string().describe("The authorization policy ID"),
-      idempotencyKey: z.string().describe("The idempotency key of the escalated proposal"),
-      approverId: z.string().describe("Who is approving/denying"),
-      decision: z.enum(["approve", "deny"]).describe("The approval decision"),
-    },
-    async (params) => {
-      const result = await handleApprovalRequest(
-        {
-          authorizationId: params.authorizationId,
-          idempotencyKey: params.idempotencyKey,
-          approverId: params.approverId,
-          decision: params.decision,
-        },
-        {
-          store: deps.store,
-          logger: deps.logger,
-          resolvePolicy: deps.resolvePolicy,
-        },
-      );
-
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(result) }],
       };
     },
   );

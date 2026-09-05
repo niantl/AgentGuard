@@ -199,6 +199,20 @@ describe("MCP server — round-trip", () => {
       await ctx.cleanup();
     }
   });
+
+  it("does NOT expose approve_escalation tool on agent-facing MCP surface", async () => {
+    const ctx = await setupMcpTest();
+    try {
+      const tools = await ctx.client.listTools();
+      const toolNames = tools.tools.map((t) => t.name);
+      expect(toolNames).not.toContain("approve_escalation");
+      expect(toolNames).toContain("propose_transaction");
+      expect(toolNames).toContain("get_policy_status");
+      expect(toolNames).toContain("verify_audit_chain");
+    } finally {
+      await ctx.cleanup();
+    }
+  });
 });
 
 // ===========================================================================

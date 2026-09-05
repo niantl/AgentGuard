@@ -52,9 +52,14 @@ export function DashboardClient({ initialState }: { initialState: DashboardState
       setBusy(key);
       try {
         const toastId = notify.loading(`Processing ${key}...`);
+        const headers: Record<string, string> = {};
+        if (body) headers["content-type"] = "application/json";
+        const adminToken = process.env.NEXT_PUBLIC_AGENTGUARD_ADMIN_TOKEN || "ag-admin-demo-token-2026";
+        headers["x-agentguard-admin-token"] = adminToken;
+
         const response = await fetch(url, {
           method,
-          headers: body ? { "content-type": "application/json" } : undefined,
+          headers,
           body: body ? JSON.stringify(body) : undefined,
           cache: "no-store",
         });

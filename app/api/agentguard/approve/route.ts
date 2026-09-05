@@ -6,6 +6,7 @@ import {
   submitApproval,
 } from "@/runtime/agentGuardRuntime";
 import type { ApprovalDecision } from "@/api/approve";
+import { verifyAdminToken } from "@/security/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,13 @@ export const dynamic = "force-dynamic";
  * identical either way.
  */
 export async function POST(request: Request) {
+  if (!verifyAdminToken(request)) {
+    return NextResponse.json(
+      { ok: false, code: "ERR_UNAUTHORIZED", message: "Unauthorized: valid x-agentguard-admin-token header required" },
+      { status: 401 },
+    );
+  }
+
   let body: {
     authorizationId?: unknown;
     idempotencyKey?: unknown;
@@ -77,6 +85,13 @@ export async function POST(request: Request) {
  * be exercised directly, e.g. with curl.
  */
 export async function PUT(request: Request) {
+  if (!verifyAdminToken(request)) {
+    return NextResponse.json(
+      { ok: false, code: "ERR_UNAUTHORIZED", message: "Unauthorized: valid x-agentguard-admin-token header required" },
+      { status: 401 },
+    );
+  }
+
   let body: { idempotencyKey?: unknown; encodedToken?: unknown };
   try {
     body = await request.json();
